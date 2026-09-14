@@ -200,37 +200,41 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-let currentPort = parseInt(process.env.PORT || 5000, 10);
+// ── Local Server Startup (not used on Vercel Serverless) ────────────────────
+// On Vercel, the app is exported as a serverless function.
+// startServer() is only called when running locally with `node server.js`.
+if (process.env.VERCEL !== '1') {
+  const currentPort = parseInt(process.env.PORT || 5000, 10);
 
-function startServer(port) {
-  const server = app.listen(port, () => {
-    console.log(`
+  function startServer(port) {
+    const server = app.listen(port, () => {
+      console.log(`
 🎓 ========================================================
    Wycherley International School — Bulk Invoicing Portal
    Port:    ${port}
    URL:     http://localhost:${port}
    Zoho:    Wycherley International School (Org: ${process.env.ZOHO_ORG_ID})
 ========================================================`);
-  });
+    });
 
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.warn(`⚠️ Port ${port} is already in use. Trying port ${port + 1}...`);
-      startServer(port + 1);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`⚠️ Port ${port} is already in use. Trying port ${port + 1}...`);
+        startServer(port + 1);
+      } else {
+        console.error('Server error:', err);
+      }
+    });
 
-  // Attempt to restore or initialize WhatsApp session in background
-  initWhatsApp().catch((err) => {
-    console.warn('📱 [WhatsApp] Initial connection check:', err.message);
-  });
-}
+    // Attempt to restore or initialize WhatsApp session in background
+    initWhatsApp().catch((err) => {
+      console.warn('📱 [WhatsApp] Initial connection check:', err.message);
+    });
+  }
 
-if (!process.env.VERCEL) {
   startServer(currentPort);
 }
 
+// Export for Vercel Serverless Function
 module.exports = app;
 
