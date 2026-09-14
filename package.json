@@ -1,11 +1,14 @@
 {
-  "name": "zoho-books-auto-journal",
+  "name": "wycharly-bulk-invoicing-portal",
   "version": "1.0.0",
-  "description": "Auto create adjusting expense journals for Zoho Books Vendor Payments",
+  "description": "Wycherley International School - Bulk Student Invoicing, Email & WhatsApp Dispatch Portal",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc14",
@@ -16,3 +19,4 @@
     "qrcode": "^1.5.4"
   }
 }
+

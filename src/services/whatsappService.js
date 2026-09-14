@@ -4,10 +4,13 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// On Vercel, only /tmp is writable. Locally, use .whatsapp_session in project root.
+// Session directory resolution:
+// - Railway / local: use .whatsapp_session in project root (persistent filesystem)
+// - Vercel serverless: use /tmp (only writable path, but ephemeral — WA won't persist across requests)
 const SESSION_DIR = process.env.VERCEL === '1'
   ? '/tmp/.whatsapp_session'
   : path.join(process.cwd(), '.whatsapp_session');
+
 
 
 let sock = null;
