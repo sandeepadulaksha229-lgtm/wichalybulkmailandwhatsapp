@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wycherley International School — Bulk Student Invoicing</title>
+  <meta name="description" content="Automated Grade-based Bulk Invoicing and Parent Email Dispatch Portal for Wycherley International School via Zoho Books API.">
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Initialize theme before DOM renders to prevent flicker
+    (function() {
+      const savedTheme = localStorage.getItem('wycherley_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Top Ambient Glow -->
+  <div class="ambient-glow glow-top"></div>
+  <div class="ambient-glow glow-bottom"></div>
+
+  <!-- Main Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-crest">
+        <i class="fa-solid fa-graduation-cap"></i>
+      </div>
+      <div class="brand-text">
+        <h1>Wycherley International School</h1>
+        <span class="brand-subtitle">Bulk Student Invoicing & Dispatch Portal</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <div class="status-badge" id="zohoStatusBadge">
+        <span class="pulse-dot"></span>
+        <span id="zohoStatusText">Connecting to Zoho Books...</span>
+      </div>
+
+      <button class="status-badge whatsapp-badge" id="btnOpenWhatsAppModal" title="Manage WhatsApp Connection & QR Code">
+        <i class="fa-brands fa-whatsapp"></i>
+        <span class="pulse-dot" id="waPulseDot"></span>
+        <span id="whatsappStatusText">WhatsApp: Checking...</span>
+      </button>
+
+      <button class="btn btn-secondary" id="btnRefreshData" title="Refresh Student & Fee Data">
+        <i class="fa-solid fa-arrows-rotate"></i>
+        <span>Refresh</span>
+      </button>
+
+      <button class="btn btn-ghost" id="btnViewHistory" title="View Batch History">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>History</span>
+      </button>
+
+      <button class="btn btn-theme-toggle" id="btnThemeToggle" title="Switch between Light and Dark Mode" aria-label="Toggle Theme">
+        <i class="fa-solid fa-sun" id="themeToggleIcon"></i>
+        <span id="themeToggleText">Light</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="app-container">
+
+    <!-- Overview Metrics Bar -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-icon icon-blue">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Students in Grade</span>
+          <h2 class="metric-value" id="metricTotalStudents">0</h2>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-emerald">
+          <i class="fa-solid fa-user-check"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Selected for Billing</span>
+          <h2 class="metric-value" id="metricSelectedCount">0</h2>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-gold">
+          <i class="fa-solid fa-envelope-circle-check"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Email Ready</span>
+          <h2 class="metric-value" id="metricEmailReady">0</h2>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-green">
+          <i class="fa-brands fa-whatsapp"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">WhatsApp Ready</span>
+          <h2 class="metric-value" id="metricWhatsAppReady">0</h2>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-purple">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Estimated Batch Total</span>
+          <h2 class="metric-value" id="metricBatchTotal">LKR 0.00</h2>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grade Filter Bar -->
+    <section class="filter-section">
+      <div class="filter-header">
+        <div class="section-title">
+          <i class="fa-solid fa-filter"></i>
+          <span>Select Grade Level</span>
+        </div>
+      </div>
+
+      <!-- Grade Filter Pills (Dynamic) -->
+      <div class="grades-carousel" id="gradesContainer">
+        <button class="grade-pill active" data-grade="ALL">
+          <span>All Grades</span>
+          <span class="count-chip" id="chipAllCount">-</span>
+        </button>
+        <div class="grades-loading">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading grades from Zoho Books...
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace (Two Columns) -->
+    <div class="workspace-grid">
+
+      <!-- Left Column: Student Selection Table -->
+      <div class="panel student-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="fa-solid fa-user-graduate"></i>
+            <span>Students List (<span id="studentsCountLabel">0</span>)</span>
+          </div>
+
+          <div class="panel-actions">
+            <!-- Search Box inside Students List Header -->
+            <div class="search-box table-search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="searchInput" placeholder="Search students in grade..." autocomplete="off">
+              <button id="btnClearSearch" class="btn-clear hidden" title="Clear search"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <button class="btn-sm btn-outline" id="btnSelectAll">Select All</button>
+            <button class="btn-sm btn-outline" id="btnSelectWithEmail">Select With Email</button>
+            <button class="btn-sm btn-outline" id="btnDeselectAll">Deselect All</button>
+          </div>
+        </div>
+
+        <div class="table-wrapper" id="studentsTableWrapper">
+          <table class="students-table">
+            <thead>
+              <tr>
+                <th width="44">
+                  <input type="checkbox" id="selectAllCheckbox" title="Select / Deselect All">
+                </th>
+                <th>Admission No</th>
+                <th>Student Name</th>
+                <th>Grade</th>
+                <th>Parent Email</th>
+                <th>Phone</th>
+                <th class="text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody id="studentsTableBody">
+              <tr>
+                <td colspan="7" class="state-cell">
+                  <div class="loading-state">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>
+                    <span>Loading student records from Zoho Books...</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-footer">
+          <span id="selectionSummary">0 of 0 students selected</span>
+          <span class="tip-text"><i class="fa-solid fa-circle-info"></i> Invoices will only be generated for checked students.</span>
+        </div>
+      </div>
+
+      <!-- Right Column: Invoice & Fee Configuration Panel -->
+      <div class="panel config-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="fa-solid fa-file-invoice"></i>
+            <span>Invoice & Fee Configuration</span>
+          </div>
+          <div class="badge-tag" id="currentGradeBadge">Grade: All</div>
+        </div>
+
+        <div class="config-body">
+
+          <!-- Term & Date Settings -->
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="termNameInput"><i class="fa-solid fa-calendar-check"></i> Term / Invoice Title</label>
+              <input type="text" id="termNameInput" value="Term 1 Fee (2026/2027)" placeholder="e.g. Term 1 Fee (2026/2027)">
+            </div>
+            <div class="form-group flex-1">
+              <label for="refPrefixInput"><i class="fa-solid fa-hashtag"></i> Ref Prefix</label>
+              <input type="text" id="refPrefixInput" value="WIS-T1" placeholder="e.g. WIS-T1">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="invoiceDateInput"><i class="fa-solid fa-calendar-days"></i> Invoice Date</label>
+              <input type="date" id="invoiceDateInput">
+            </div>
+            <div class="form-group">
+              <label for="dueDateInput"><i class="fa-solid fa-calendar-xmark"></i> Payment Due Date</label>
+              <input type="date" id="dueDateInput">
+            </div>
+          </div>
+
+          <!-- Fee Line Items Section -->
+          <div class="fee-items-section">
+            <div class="fee-items-header">
+              <span class="subheading"><i class="fa-solid fa-list-check"></i> Fee Line Items (Applied to each student)</span>
+              <div class="template-actions">
+                <button class="btn-xs btn-outline" id="btnLoadGradeTemplate" title="Load Preset Template for selected grade">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Load Grade Preset
+                </button>
+              </div>
+            </div>
+
+            <div class="line-items-container" id="lineItemsContainer">
+              <!-- Dynamic Line Items inserted here -->
+            </div>
+
+            <button class="btn-sm btn-ghost-primary" id="btnAddLineItem">
+              <i class="fa-solid fa-plus"></i> Add Another Fee Item
+            </button>
+          </div>
+
+          <!-- Email & Delivery Settings -->
+          <div class="delivery-options-box">
+            <div class="option-row">
+              <label class="switch">
+                <input type="checkbox" id="chkSendEmail" checked>
+                <span class="slider round"></span>
+              </label>
+              <div class="option-info">
+                <strong><i class="fa-solid fa-paper-plane"></i> Auto-Email Invoices via Zoho Books</strong>
+                <p>Sends official PDF invoice with payment link directly to parent's email address upon creation.</p>
+              </div>
+            </div>
+
+            <div class="option-row">
+              <label class="switch">
+                <input type="checkbox" id="chkSendWhatsApp" checked>
+                <span class="slider round"></span>
+              </label>
+              <div class="option-info">
+                <strong><i class="fa-brands fa-whatsapp text-emerald"></i> Auto-Dispatch via WhatsApp (Attached PDF)</strong>
+                <p>Sends official PDF invoice document directly to parent's WhatsApp mobile number upon creation.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes & Terms -->
+          <div class="form-group">
+            <label for="customNotesInput"><i class="fa-regular fa-note-sticky"></i> Invoice Notes & Instructions (Optional)</label>
+            <textarea id="customNotesInput" rows="2" placeholder="Custom note for this batch of invoices..."></textarea>
+          </div>
+
+          <!-- Calculation Summary Box -->
+          <div class="calculation-box">
+            <div class="calc-row">
+              <span>Fee Per Student:</span>
+              <strong id="calcFeePerStudent">LKR 0.00</strong>
+            </div>
+            <div class="calc-row">
+              <span>Selected Students:</span>
+              <strong id="calcSelectedCount">0</strong>
+            </div>
+            <div class="calc-divider"></div>
+            <div class="calc-row grand-total">
+              <span>Grand Total Batch Value:</span>
+              <span class="highlight-total" id="calcGrandTotal">LKR 0.00</span>
+            </div>
+          </div>
+
+          <!-- Primary Dispatch Trigger Button -->
+          <button class="btn-primary-dispatch" id="btnStartBulkSend">
+            <div class="btn-icon">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div class="btn-text">
+              <span class="btn-main-title">GENERATE & SEND BULK INVOICES</span>
+              <span class="btn-sub-title" id="btnDispatchSubtitle">Create Invoices in Zoho Books for 0 Students</span>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal: Confirmation & Pre-flight Check -->
+  <div class="modal-backdrop hidden" id="confirmModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-triangle-exclamation text-amber"></i>
+          <span>Confirm Bulk Invoice Generation</span>
+        </div>
+        <button class="modal-close" id="btnCloseConfirmModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">You are about to generate and send invoices directly via <strong>Zoho Books API</strong> for <strong>Wycherley International School</strong>.</p>
+        
+        <div class="summary-check-card">
+          <div class="check-item">
+            <span class="check-label">Target Grade:</span>
+            <strong id="confirmGrade">-</strong>
+          </div>
+          <div class="check-item">
+            <span class="check-label">Term / Title:</span>
+            <strong id="confirmTerm">-</strong>
+          </div>
+          <div class="check-item">
+            <span class="check-label">Students to Bill:</span>
+            <strong id="confirmCount">-</strong>
+          </div>
+          <div class="check-item">
+            <span class="check-label">Total Amount (LKR):</span>
+            <strong class="text-emerald" id="confirmTotal">-</strong>
+          </div>
+          <div class="check-item">
+            <span class="check-label">Auto Email Dispatch:</span>
+            <strong id="confirmEmailStatus">-</strong>
+          </div>
+          <div class="check-item">
+            <span class="check-label">WhatsApp PDF Dispatch:</span>
+            <strong id="confirmWhatsAppStatus">-</strong>
+          </div>
+        </div>
+
+        <div class="warning-alert">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Invoices will be recorded in Zoho Books ledger. Please ensure line items and fees are accurate before proceeding.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelConfirm">Cancel</button>
+        <button class="btn btn-primary" id="btnProceedSend">
+          <i class="fa-solid fa-check"></i> Yes, Generate & Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Live Progress Stream & Execution Console -->
+  <div class="modal-backdrop hidden" id="progressModal">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-circle-nodes text-blue"></i>
+          <span>Bulk Invoicing in Progress...</span>
+        </div>
+        <button class="modal-close hidden" id="btnCloseProgressModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Live Progress Status Bar -->
+        <div class="progress-section">
+          <div class="progress-info-row">
+            <span class="progress-status-text" id="progressStatusText">Initializing batch...</span>
+            <span class="progress-percentage" id="progressPercentage">0%</span>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+          </div>
+
+          <div class="progress-stats-row">
+            <div class="stat-badge"><i class="fa-solid fa-layer-group"></i> Total: <strong id="progTotal">0</strong></div>
+            <div class="stat-badge stat-success"><i class="fa-solid fa-circle-check"></i> Success: <strong id="progSuccess">0</strong></div>
+            <div class="stat-badge stat-error"><i class="fa-solid fa-circle-xmark"></i> Failed: <strong id="progFailed">0</strong></div>
+            <div class="stat-badge stat-amount"><i class="fa-solid fa-coins"></i> Billed: <strong id="progAmount">LKR 0</strong></div>
+          </div>
+        </div>
+
+        <!-- Terminal Console Logs -->
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <span class="terminal-title"><i class="fa-solid fa-terminal"></i> Live Zoho Books Dispatch Log</span>
+            <span class="terminal-badge" id="terminalLiveBadge"><span class="pulse-green"></span> LIVE</span>
+          </div>
+          <div class="terminal-body" id="terminalBody">
+            <div class="log-line log-info">[System] Ready to start bulk invoice stream...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary hidden" id="btnExportCSV">
+          <i class="fa-solid fa-file-csv"></i> Download CSV Report
+        </button>
+        <button class="btn btn-primary hidden" id="btnDoneProgress">
+          <i class="fa-solid fa-check"></i> Done & Return
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: History of Past Batches -->
+  <div class="modal-backdrop hidden" id="historyModal">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-clock-rotate-left text-purple"></i>
+          <span>Bulk Invoicing History</span>
+        </div>
+        <button class="modal-close" id="btnCloseHistoryModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="table-wrapper">
+          <table class="students-table">
+            <thead>
+              <tr>
+                <th>Batch ID</th>
+                <th>Date & Time</th>
+                <th>Grade</th>
+                <th>Term</th>
+                <th>Processed</th>
+                <th>Success</th>
+                <th>Total Billed</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="8" class="state-cell">Loading history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnDismissHistory">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: WhatsApp QR Code & Session Management -->
+  <div class="modal-backdrop hidden" id="whatsappModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-brands fa-whatsapp text-emerald"></i>
+          <span>WhatsApp Invoice Dispatch Gateway</span>
+        </div>
+        <button class="modal-close" id="btnCloseWhatsAppModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Section 1: QR Code Scanner (Disconnected State) -->
+        <div id="waQrSection" class="wa-section">
+          <div class="wa-instructions-box">
+            <h4><i class="fa-solid fa-qrcode"></i> Link School WhatsApp Device</h4>
+            <ol>
+              <li>Open <strong>WhatsApp</strong> on the school/admin mobile phone.</li>
+              <li>Tap <strong>Settings / Menu (⋮)</strong> &rarr; <strong>Linked Devices</strong>.</li>
+              <li>Tap <strong>Link a Device</strong> and point the camera at this QR code:</li>
+            </ol>
+          </div>
+
+          <div class="wa-qr-container">
+            <div class="wa-qr-wrapper" id="waQrWrapper">
+              <img id="waQrImage" src="" alt="WhatsApp QR Code" class="wa-qr-img hidden" />
+              <div id="waQrLoading" class="wa-qr-loading">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                <span id="waQrLoadingText">Generating WhatsApp QR Code...</span>
+              </div>
+            </div>
+            <button class="btn-xs btn-outline" id="btnRefreshQr">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh QR Code
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 2: Connected Device State -->
+        <div id="waConnectedSection" class="wa-section hidden">
+          <div class="wa-connected-card">
+            <div class="wa-connected-icon">
+              <i class="fa-brands fa-whatsapp"></i>
+            </div>
+            <div class="wa-connected-details">
+              <h4>WhatsApp Gateway Connected</h4>
+              <p class="wa-phone-number" id="waConnectedUserNumber">+94 XX XXX XXXX</p>
+              <span class="status-pill status-active"><span class="pulse-green"></span> Online & Ready for Bulk PDF Dispatch</span>
+            </div>
+          </div>
+
+          <!-- Test Message Box -->
+          <div class="wa-test-box">
+            <label for="waTestPhone"><i class="fa-regular fa-paper-plane"></i> Send Test Message:</label>
+            <div class="wa-test-input-row">
+              <input type="text" id="waTestPhone" placeholder="e.g. 0771234567" />
+              <button class="btn btn-secondary" id="btnSendTestWa">
+                <i class="fa-solid fa-paper-plane"></i> Send Test
+              </button>
+            </div>
+            <small class="tip-text">Enter parent mobile (077XXXXXXX) to test connectivity</small>
+          </div>
+
+          <div class="wa-disconnect-box">
+            <button class="btn-sm btn-danger-outline" id="btnDisconnectWa">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i> Disconnect / Unlink Device
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnDismissWhatsAppModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
