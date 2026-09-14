@@ -228,7 +228,9 @@ function startServer(port) {
   });
 }
 
-startServer(currentPort);
+if (!process.env.VERCEL) {
+  startServer(currentPort);
+}
 
 module.exports = app;
 

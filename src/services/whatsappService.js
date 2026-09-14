@@ -4,7 +4,9 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-const SESSION_DIR = path.join(process.cwd(), '.whatsapp_session');
+const SESSION_DIR = process.env.VERCEL
+  ? path.join('/tmp', '.whatsapp_session')
+  : path.join(process.cwd(), '.whatsapp_session');
 
 let sock = null;
 let currentQR = null;
@@ -13,9 +15,14 @@ let connectedUser = null;
 let reconnectTimer = null;
 
 // Ensure session directory exists
-if (!fs.existsSync(SESSION_DIR)) {
-  fs.mkdirSync(SESSION_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(SESSION_DIR)) {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('⚠️ [WhatsApp] Could not create session directory:', e.message);
 }
+
 
 /**
  * Format phone number to WhatsApp JID (@s.whatsapp.net)
